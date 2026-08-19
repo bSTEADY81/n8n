@@ -1,0 +1,10 @@
+node_modules/
+.vercel/
+.env
+.env.local
+*.log
+
+# The repo root ignores **/package-lock.json because n8n uses pnpm. This
+# subproject is a standalone npm project and needs its lockfile committed
+# for reproducible Vercel builds.
+!package-lock.json
