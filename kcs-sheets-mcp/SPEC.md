@@ -83,7 +83,11 @@ secret in the path, or request header auth.
 - **Vercel commercial use.** Confirmed against Vercel's fair use guidelines: Hobby teams are
   restricted to non-commercial personal use, and commercial is defined as any deployment used
   "for the purpose of financial gain of anyone involved in any part of the production of the
-  project". This is commercial. A **Pro** team is required.
+  project". This is commercial, so a **Pro** team is required. The Vercel API does not expose the
+  current plan, so confirm at `vercel.com/<team>/~/settings/billing`.
+- **Deployment protection.** New Vercel projects default to Vercel Authentication on all
+  `*.vercel.app` URLs, which would put an SSO redirect in front of the connector endpoint. It must
+  be disabled for this project, or the endpoint moved to a custom domain. See the README.
 - **Request header auth.** Confirmed as supported but still beta, with the connector dialog not
   reliably exposing the field. The server therefore accepts the path secret, a bearer header, and
   an `X-MCP-Token` header, so whichever the dialog offers will work.

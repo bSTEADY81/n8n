@@ -100,12 +100,26 @@ npx vercel deploy --prod
 
 `npx vercel dev` runs it locally at `http://localhost:3000/mcp/<token>`.
 
-> **The Hobby plan is not an option here.** Vercel's fair use guidelines restrict Hobby teams to
-> non-commercial personal use, and define commercial as any deployment used "for the purpose of
-> financial gain of anyone involved in any part of the production of the project". Internal tooling
-> for a trading business is squarely that. Put the project on a **Pro** team before it goes live.
-> Cloudflare Workers' free tier carries no equivalent restriction if you would rather not pay —
-> only `api/mcp.ts` is Vercel-specific, everything under `src/` is portable.
+> **Check the plan first.** Vercel's fair use guidelines restrict Hobby teams to non-commercial
+> personal use, and define commercial as any deployment used "for the purpose of financial gain of
+> anyone involved in any part of the production of the project". Internal tooling for a trading
+> business is squarely that, so this needs a **Pro** team. Confirm at
+> `vercel.com/<team>/~/settings/billing` before going live. Cloudflare Workers' free tier carries no
+> equivalent restriction if you would rather not pay — only `api/mcp.ts` is Vercel-specific,
+> everything under `src/` is portable.
+
+> **Turn Vercel Authentication off for this project.** New Vercel projects default to
+> `ssoProtection: all_except_custom_domains`, which puts an SSO redirect in front of every
+> `*.vercel.app` URL. Claude reaches the connector from Anthropic's cloud with no Vercel session, so
+> it would get the login page instead of a JSON-RPC response and the connector would never finish
+> handshaking. Fix it one of three ways, in order of preference:
+>
+> 1. Project → Settings → Deployment Protection → **Vercel Authentication: Disabled**. The server
+>    has its own shared-secret auth, so this is not leaving it open.
+> 2. Put it on a custom domain — `all_except_custom_domains` already exempts those.
+> 3. Leave protection on and use a Protection Bypass for Automation token, appending
+>    `x-vercel-protection-bypass` to the connector URL. Most fiddly; two secrets to rotate instead
+>    of one.
 
 ### 4. Add as a Claude connector
 
