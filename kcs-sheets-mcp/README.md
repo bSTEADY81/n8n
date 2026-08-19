@@ -100,13 +100,13 @@ npx vercel deploy --prod
 
 `npx vercel dev` runs it locally at `http://localhost:3000/mcp/<token>`.
 
-> **Check the plan first.** Vercel's fair use guidelines restrict Hobby teams to non-commercial
-> personal use, and define commercial as any deployment used "for the purpose of financial gain of
-> anyone involved in any part of the production of the project". Internal tooling for a trading
-> business is squarely that, so this needs a **Pro** team. Confirm at
-> `vercel.com/<team>/~/settings/billing` before going live. Cloudflare Workers' free tier carries no
-> equivalent restriction if you would rather not pay — only `api/mcp.ts` is Vercel-specific,
-> everything under `src/` is portable.
+> **Plan: Pro, confirmed.** Vercel's fair use guidelines restrict Hobby teams to non-commercial
+> personal use, which this is not, so Pro is the requirement and it is already met. Cost is
+> effectively nil: Pro bills function invocations at $0.60 per million against a $20 monthly credit,
+> and the Sheets API is free. Keep this in mind only if a skill ever starts polling in a loop.
+>
+> If it ever needs to move, only `api/mcp.ts` is Vercel-specific — everything under `src/` ports to
+> Cloudflare Workers unchanged.
 
 > **Turn Vercel Authentication off for this project.** New Vercel projects default to
 > `ssoProtection: all_except_custom_domains`, which puts an SSO redirect in front of every

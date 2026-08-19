@@ -80,11 +80,9 @@ secret in the path, or request header auth.
 
 ### Resolved open items
 
-- **Vercel commercial use.** Confirmed against Vercel's fair use guidelines: Hobby teams are
-  restricted to non-commercial personal use, and commercial is defined as any deployment used
-  "for the purpose of financial gain of anyone involved in any part of the production of the
-  project". This is commercial, so a **Pro** team is required. The Vercel API does not expose the
-  current plan, so confirm at `vercel.com/<team>/~/settings/billing`.
+- **Vercel commercial use.** Closed. Hobby is restricted to non-commercial personal use, so this
+  needs Pro — and the account is already on Pro, with the $20 monthly credit untouched. Not a
+  blocker.
 - **Deployment protection.** New Vercel projects default to Vercel Authentication on all
   `*.vercel.app` URLs, which would put an SSO redirect in front of the connector endpoint. It must
   be disabled for this project, or the endpoint moved to a custom domain. See the README.
