@@ -1,10 +1,37 @@
 # Deploying — the runbook
 
-Everything here needs credentials that only live on a machine logged in as Brad: `gcloud`
-authenticated to the Google account that owns the sheets, and `vercel` authenticated to the
-`bjs-projects-4a11c607` team. Run it there.
+**No terminal required.** Both halves of this are browser tasks, roughly ten minutes total.
+The CLI commands further down are an alternative for anyone who prefers them, not the main path.
 
-A Claude Code session on that machine can follow this file directly. Start with:
+## The short version
+
+1. **console.cloud.google.com** — new project → enable Sheets API + Drive API → create a service
+   account → Keys → Add key → JSON. Copy the service account email.
+2. **Share the sheets** with that email (table in step 2 below). Or paste the email to Claude,
+   which can do all six through the Google Drive connector.
+3. **vercel.com/new** → import `bSTEADY81/n8n` → set **Root Directory** to `kcs-sheets-mcp`,
+   **Production Branch** to `claude/kcs-sheets-mcp-server-kmac63` → add the three environment
+   variables → Deploy.
+4. Confirm Settings → Deployment Protection → Vercel Authentication is **Disabled**.
+5. Add `https://<deployment>/mcp/<MCP_AUTH_TOKEN>` as a custom connector.
+
+The three environment variables:
+
+| Name | Value |
+|---|---|
+| `MCP_AUTH_TOKEN` | any long random string — a password manager's generator is fine |
+| `GOOGLE_SERVICE_ACCOUNT_JSON` | the entire contents of the downloaded JSON key file |
+| `QUOTES_FOLDER_ID` | the segment after `/folders/` in the Quotes 2026 S&I Drive URL |
+
+`GOOGLE_SERVICE_ACCOUNT_JSON` takes the raw JSON pasted straight in — the server handles the
+embedded newlines in the private key. Base64 is accepted too but is not necessary.
+
+---
+
+## The CLI version
+
+Needs `gcloud` authenticated to the Google account that owns the sheets, and `vercel`
+authenticated to the `bjs-projects-4a11c607` team.
 
 ```bash
 git clone -b claude/kcs-sheets-mcp-server-kmac63 https://github.com/bSTEADY81/n8n
