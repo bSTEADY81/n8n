@@ -174,7 +174,7 @@ Still one Zapier call each: design approval (Gmail draft with attachments), draf
 ```bash
 npm install
 npm test          # 66 tests, no network
-npm run build     # tsc --noEmit
+npm run typecheck # tsc --noEmit
 ```
 
 Tests cover A1 parsing, the auth comparison, every guard rail, each tool against a fake Sheets

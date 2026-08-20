@@ -5,7 +5,7 @@
   "type": "module",
   "description": "Self-hosted remote MCP server giving KC's skills scoped Google Sheets access",
   "scripts": {
-    "build": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
     "smoke": "node --env-file=.env scripts/smoke.mjs"
