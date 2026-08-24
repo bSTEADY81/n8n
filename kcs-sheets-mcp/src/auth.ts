@@ -14,8 +14,12 @@ export function tokenMatches(provided: string | undefined, expected: string): bo
 }
 
 export interface AuthInputs {
-	/** Token lifted out of the URL path by the vercel.json rewrite. */
-	queryToken?: string | string[];
+	/**
+	 * Candidate secrets from the query string. More than one name is accepted
+	 * because the connector predating this server passes it as "k", and changing
+	 * the connector URL is more disruptive than reading a second parameter.
+	 */
+	queryTokens?: Array<string | string[] | undefined>;
 	authorizationHeader?: string;
 	customHeader?: string | string[];
 }
@@ -25,15 +29,22 @@ function first(value: string | string[] | undefined): string | undefined {
 }
 
 /**
- * Two accepted routes, per section 5 of the spec: the secret embedded in the URL
- * path, which works with a plain connector-by-URL add today, and a bearer token
- * for when the connector dialog exposes request headers.
+ * Accepted routes, per section 5 of the spec: the secret in the URL (as a path
+ * segment rewritten to ?token=, or directly as ?token= / ?k=), and a bearer or
+ * X-MCP-Token header for when the connector dialog exposes request headers.
+ *
+ * Every candidate is compared even after a match so the work does not vary with
+ * which route carried the secret.
  */
 export function isAuthorised(inputs: AuthInputs, expected: string): boolean {
 	const bearer = inputs.authorizationHeader?.replace(/^Bearer\s+/i, '');
-	return (
-		tokenMatches(first(inputs.queryToken), expected) ||
-		tokenMatches(bearer, expected) ||
-		tokenMatches(first(inputs.customHeader), expected)
+	const candidates = [
+		...(inputs.queryTokens ?? []).map(first),
+		bearer,
+		first(inputs.customHeader),
+	];
+	return candidates.reduce<boolean>(
+		(matched, candidate) => tokenMatches(candidate, expected) || matched,
+		false,
 	);
 }

@@ -17,7 +17,19 @@ describe('tokenMatches', () => {
 
 describe('isAuthorised', () => {
 	it('accepts the token from the URL path', () => {
-		expect(isAuthorised({ queryToken: SECRET }, SECRET)).toBe(true);
+		expect(isAuthorised({ queryTokens: [SECRET] }, SECRET)).toBe(true);
+	});
+
+	it('accepts it under any of the query names, in any position', () => {
+		// The pre-existing connector passes ?k=; the rewrite passes ?token=.
+		expect(isAuthorised({ queryTokens: [undefined, SECRET] }, SECRET)).toBe(true);
+		expect(isAuthorised({ queryTokens: [SECRET, undefined] }, SECRET)).toBe(true);
+		expect(isAuthorised({ queryTokens: ['wrong', SECRET] }, SECRET)).toBe(true);
+	});
+
+	it('takes the first value when a query name is repeated', () => {
+		expect(isAuthorised({ queryTokens: [[SECRET, 'wrong']] }, SECRET)).toBe(true);
+		expect(isAuthorised({ queryTokens: [['wrong', SECRET]] }, SECRET)).toBe(false);
 	});
 
 	it('accepts a bearer header, case insensitively on the scheme', () => {
@@ -31,9 +43,14 @@ describe('isAuthorised', () => {
 
 	it('rejects when nothing is supplied or everything is wrong', () => {
 		expect(isAuthorised({}, SECRET)).toBe(false);
+		expect(isAuthorised({ queryTokens: [] }, SECRET)).toBe(false);
 		expect(
 			isAuthorised(
-				{ queryToken: 'nope', authorizationHeader: 'Bearer nope', customHeader: 'nope' },
+				{
+					queryTokens: ['nope', 'also-nope'],
+					authorizationHeader: 'Bearer nope',
+					customHeader: 'nope',
+				},
 				SECRET,
 			),
 		).toBe(false);

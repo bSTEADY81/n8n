@@ -22,7 +22,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
 	const authorised = isAuthorised(
 		{
-			queryToken: req.query?.token,
+			// "k" is what the connector configured before this server was written uses.
+			queryTokens: [req.query?.token, req.query?.k],
 			authorizationHeader: req.headers.authorization,
 			customHeader: req.headers['x-mcp-token'],
 		},
