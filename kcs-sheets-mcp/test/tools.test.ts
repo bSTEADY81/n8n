@@ -20,6 +20,7 @@ interface Calls {
 	batchGet: Array<{ ranges: string[]; render: string }>;
 	batchUpdate: Array<{ data: unknown; valueInputOption: string }>;
 	append: Array<{ range: string; values: CellValue[][] }>;
+	findWorkbooks: string[];
 }
 
 function harness(options: {
@@ -27,10 +28,15 @@ function harness(options: {
 	tabs?: Array<{ title: string }>;
 	appendRange?: string;
 	updatedRanges?: string[];
+	workbooks?: Array<{ id: string; name: string; modifiedTime: string }>;
 }) {
-	const calls: Calls = { batchGet: [], batchUpdate: [], append: [] };
+	const calls: Calls = { batchGet: [], batchUpdate: [], append: [], findWorkbooks: [] };
 	const client = {
 		getParents: async () => ['SOME_OTHER_FOLDER'],
+		findQuoteWorkbooks: async (_folder: string, nameContains: string) => {
+			calls.findWorkbooks.push(nameContains);
+			return options.workbooks ?? [];
+		},
 		listTabs: async () => ({ title: 'Book', tabs: options.tabs ?? [] }),
 		batchGet: async (_id: string, ranges: string[], render: string) => {
 			calls.batchGet.push({ ranges, render });
@@ -75,16 +81,88 @@ function harness(options: {
 beforeEach(() => resetParentCache());
 
 describe('tool surface', () => {
-	it('exposes exactly the six tools from the spec', () => {
+	it('exposes the six spec tools plus the two the deployed server added', () => {
 		const { tools } = harness({});
 		expect(tools.map((t) => t.name).sort()).toEqual([
 			'sheets_append_row',
+			'sheets_find_quote_workbook',
 			'sheets_find_row',
 			'sheets_list_tabs',
 			'sheets_next_blank_row',
 			'sheets_read_range',
+			'sheets_registry',
 			'sheets_write_cells',
 		]);
+	});
+});
+
+describe('sheets_registry', () => {
+	it('lists every allowlisted sheet with its access', async () => {
+		const { json } = harness({});
+		const out = await json('sheets_registry', {});
+		expect(out.sheets.map((s: { name: string }) => s.name)).toContain('KCs Comms Logbook');
+		expect(out.sheets).toHaveLength(6);
+	});
+
+	it('marks Project Schedule read only', async () => {
+		const { json } = harness({});
+		const out = await json('sheets_registry', {});
+		const schedule = out.sheets.find((s: { name: string }) => s.name === 'Project Schedule');
+		expect(schedule.access).toBe('read');
+	});
+
+	it('discloses protected columns so a caller does not plan a doomed write', async () => {
+		const { json } = harness({});
+		const out = await json('sheets_registry', {});
+		const ledger = out.sheets.find((s: { name: string }) => s.name === 'KCs Ledger 2026');
+		expect(ledger.protectedColumns).toEqual(['A', 'AE']);
+		expect(ledger.protectedTabs).toEqual(['Quotes']);
+	});
+
+	it('names the write tools it advertises access for', async () => {
+		const { json } = harness({});
+		const out = await json('sheets_registry', {});
+		// The deployed server reported access:write while exposing no write tool at all.
+		expect(out.writeTools).toEqual(['sheets_write_cells', 'sheets_append_row']);
+	});
+});
+
+describe('sheets_find_quote_workbook', () => {
+	it('returns matches from the quotes folder', async () => {
+		const { json } = harness({
+			workbooks: [{ id: 'WB1', name: 'Q7418 Smith', modifiedTime: '2026-08-01T00:00:00Z' }],
+		});
+		const out = await json('sheets_find_quote_workbook', { nameContains: 'Q7418' });
+		expect(out.matchCount).toBe(1);
+		expect(out.workbooks[0].id).toBe('WB1');
+	});
+
+	it('reports a miss without pretending', async () => {
+		const { json } = harness({ workbooks: [] });
+		const out = await json('sheets_find_quote_workbook', { nameContains: 'Q9999' });
+		expect(out.matchCount).toBe(0);
+		expect(out.note).toMatch(/No workbook/);
+	});
+});
+
+describe('the Comms Logbook', () => {
+	it('is writable now it is on the allowlist', async () => {
+		const { json } = harness({ appendRange: 'Log!A72:F72' });
+		const out = await json('sheets_append_row', {
+			spreadsheetId: '1UJLuQ36erDYFNfo-jSHKV8CxIMCUCjAAnInVxG-VlP8',
+			tab: 'Log',
+			values: ['2026-08-24', 'confirmed'],
+		});
+		expect(out.row).toBe(72);
+		expect(out.spreadsheetName).toBe('KCs Comms Logbook');
+	});
+
+	it('is readable', async () => {
+		const { json } = harness({ tabs: [{ title: 'Log' }] });
+		const out = await json('sheets_list_tabs', {
+			spreadsheetId: '1UJLuQ36erDYFNfo-jSHKV8CxIMCUCjAAnInVxG-VlP8',
+		});
+		expect(out.access).toBe('readwrite');
 	});
 });
 

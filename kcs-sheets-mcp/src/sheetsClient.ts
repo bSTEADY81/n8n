@@ -72,6 +72,39 @@ export class SheetsClient {
 		return json.parents ?? [];
 	}
 
+	/**
+	 * Per-job quote workbooks live in the Quotes 2026 S&I folder and cannot be
+	 * allowlisted by ID, so callers resolve them by name first. Scoped to the
+	 * folder, which is the same boundary resolveSheet enforces on access.
+	 */
+	async findQuoteWorkbooks(
+		folderId: string,
+		nameContains: string,
+	): Promise<Array<{ id: string; name: string; modifiedTime: string }>> {
+		// Drive query strings are single-quoted, so a quote in the search term
+		// would otherwise terminate the literal early.
+		const safe = nameContains.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+		const q =
+			`'${folderId}' in parents and mimeType='application/vnd.google-apps.spreadsheet' ` +
+			`and name contains '${safe}' and trashed=false`;
+		const params = new URLSearchParams({
+			q,
+			fields: 'files(id,name,modifiedTime)',
+			orderBy: 'modifiedTime desc',
+			pageSize: '20',
+			supportsAllDrives: 'true',
+			includeItemsFromAllDrives: 'true',
+		});
+		const json = await this.request<{
+			files?: Array<{ id?: string; name?: string; modifiedTime?: string }>;
+		}>(`${DRIVE_API}?${params}`);
+		return (json.files ?? []).map((f) => ({
+			id: f.id ?? '',
+			name: f.name ?? '',
+			modifiedTime: f.modifiedTime ?? '',
+		}));
+	}
+
 	async listTabs(spreadsheetId: string): Promise<{ title: string; tabs: TabInfo[] }> {
 		const url =
 			`${SHEETS_API}/${encodeURIComponent(spreadsheetId)}` +

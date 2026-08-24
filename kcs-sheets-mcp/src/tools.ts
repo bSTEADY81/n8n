@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import { indexToColumn, parseA1, quoteTab } from './a1.js';
-import type { Env } from './config.js';
+import { FIXED_SHEETS, type Env } from './config.js';
 import {
 	assertBoundedWriteRange,
 	assertNotProtected,
@@ -71,6 +71,70 @@ export interface ToolDeps {
 
 export function buildTools({ env, client }: ToolDeps) {
 	return [
+		{
+			name: 'sheets_registry',
+			config: {
+				title: 'List reachable spreadsheets',
+				description:
+					"List the KC's spreadsheets this server can reach, with their IDs and whether " +
+					'they are read only. Call this first if you do not already know the sheet ID. ' +
+					'Per-job quote workbooks are not listed here — resolve those with ' +
+					'sheets_find_quote_workbook.',
+				inputSchema: {},
+				annotations: { readOnlyHint: true },
+			},
+			handler: guarded(async () =>
+				ok({
+					sheets: FIXED_SHEETS.map((sheet) => ({
+						name: sheet.name,
+						id: sheet.id,
+						access: sheet.access,
+						// Advertising write on a sheet whose columns are partly locked would
+						// mislead a caller into planning a write that the guard rails reject.
+						...(sheet.protectedColumns?.length
+							? {
+									protectedColumns: sheet.protectedColumns,
+									protectedTabs: sheet.protectedTabs ?? 'all tabs',
+								}
+							: {}),
+					})),
+					quoteWorkbooks:
+						'Not allowlisted individually. Use sheets_find_quote_workbook with a quote ' +
+						'number or client surname to resolve one in Quotes 2026 S&I.',
+					writeTools: ['sheets_write_cells', 'sheets_append_row'],
+				}),
+			),
+		},
+
+		{
+			name: 'sheets_find_quote_workbook',
+			config: {
+				title: 'Find a quote workbook',
+				description:
+					"Find per-job quote workbooks in the Quotes 2026 S&I folder by quote number or " +
+					"client name, e.g. 'Q7418'. Returns spreadsheet IDs usable with the other tools. " +
+					'Most recently modified first.',
+				inputSchema: {
+					nameContains: z
+						.string()
+						.min(2)
+						.describe("e.g. 'Q7418' or a client surname"),
+				},
+				annotations: { readOnlyHint: true },
+			},
+			handler: guarded(async ({ nameContains }: { nameContains: string }) => {
+				const matches = await client.findQuoteWorkbooks(env.quotesFolderId, nameContains);
+				return ok({
+					query: nameContains,
+					matchCount: matches.length,
+					workbooks: matches,
+					...(matches.length === 0
+						? { note: 'No workbook in Quotes 2026 S&I matches that name.' }
+						: {}),
+				});
+			}),
+		},
+
 		{
 			name: 'sheets_list_tabs',
 			config: {

@@ -21,21 +21,26 @@ async function connect() {
 }
 
 describe('MCP server wiring', () => {
-	it('advertises the six tools with schemas over a real MCP session', async () => {
+	it('advertises every tool with schemas over a real MCP session', async () => {
 		const { client, server } = await connect();
 		const { tools } = await client.listTools();
 
 		expect(tools.map((t) => t.name).sort()).toEqual([
 			'sheets_append_row',
+			'sheets_find_quote_workbook',
 			'sheets_find_row',
 			'sheets_list_tabs',
 			'sheets_next_blank_row',
 			'sheets_read_range',
+			'sheets_registry',
 			'sheets_write_cells',
 		]);
 
+		// sheets_registry takes no arguments and find_quote_workbook resolves an ID
+		// rather than accepting one, so neither carries a spreadsheetId.
 		for (const tool of tools) {
 			expect(tool.description).toBeTruthy();
+			if (tool.name === 'sheets_registry' || tool.name === 'sheets_find_quote_workbook') continue;
 			expect(tool.inputSchema.properties).toHaveProperty('spreadsheetId');
 		}
 

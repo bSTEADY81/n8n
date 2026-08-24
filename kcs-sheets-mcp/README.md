@@ -8,11 +8,19 @@ cannot do the first two, and those flows are low volume anyway.
 
 ## Tool surface
 
-Six tools. No generic "call any Sheets endpoint" tool, deliberately — that passthrough is why
-quote generation can currently write anywhere in a workbook.
+Eight tools: the six from the spec, plus `sheets_registry` and `sheets_find_quote_workbook` to
+match what the currently deployed server exposes, so this can replace it without breaking skills
+that already call those two. No generic "call any Sheets endpoint" tool, deliberately — that
+passthrough is why quote generation can currently write anywhere in a workbook.
+
+`sheets_registry` reports each sheet's protected columns and names the write tools it is
+advertising access for. The deployed server reports `access: write` on four sheets while exposing
+no write tool at all, which sends a caller down a path that dead-ends at the write.
 
 | Tool | Inputs | Google API |
 |---|---|---|
+| `sheets_registry` | — | none; returns the compiled allowlist |
+| `sheets_find_quote_workbook` | `nameContains` | `drive.files.list` scoped to the Quotes folder |
 | `sheets_list_tabs` | `spreadsheetId` | `spreadsheets.get` (fields: `sheets.properties`) |
 | `sheets_read_range` | `spreadsheetId`, `ranges[]`, `render: VALUE \| FORMULA` | `values.batchGet` |
 | `sheets_find_row` | `spreadsheetId`, `tab`, `column`, `value`, `direction`, `match`, `startRow` | `values.batchGet`, matched server side |

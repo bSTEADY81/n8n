@@ -53,6 +53,11 @@ export const FIXED_SHEETS: SheetRule[] = [
 		name: 'Past Projects Update',
 		access: 'readwrite',
 	},
+	{
+		id: '1UJLuQ36erDYFNfo-jSHKV8CxIMCUCjAAnInVxG-VlP8',
+		name: 'KCs Comms Logbook',
+		access: 'readwrite',
+	},
 ];
 
 export interface ServiceAccountKey {
