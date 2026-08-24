@@ -165,6 +165,9 @@ Expect the six tool definitions. Two failure modes worth telling apart:
 - **HTML login page** — Vercel Authentication is still on. Back to step 4.
 - **`{"error":"Server misconfigured: Missing required environment variable ..."}`** — an env var
   did not land. `npx vercel env ls` and redeploy; env changes need a new deployment.
+  To see which ones the server can actually find, add `?health=1` to the authenticated URL:
+  `curl "https://<deployment>/mcp/<MCP_AUTH_TOKEN>?health=1"` reports each variable as
+  present or missing by name. Values are never returned.
 - **`{"error":"Unauthorized"}`** — the token in the URL does not match `MCP_AUTH_TOKEN`.
 
 ## 6. Add the connector

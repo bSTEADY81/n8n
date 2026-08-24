@@ -75,6 +75,19 @@ export interface Env {
 	extraSheetIds: string[];
 }
 
+/**
+ * Every variable the server reads, for the health check to report on. The two
+ * service-account forms are alternatives: either the JSON blob, or the split pair.
+ */
+export const REQUIRED_ENV = [
+	'MCP_AUTH_TOKEN',
+	'GOOGLE_SERVICE_ACCOUNT_JSON',
+	'GOOGLE_SERVICE_ACCOUNT_EMAIL',
+	'GOOGLE_PRIVATE_KEY',
+	'QUOTES_FOLDER_ID',
+	'EXTRA_SHEET_IDS',
+] as const;
+
 function required(name: string): string {
 	const value = process.env[name];
 	if (value === undefined || value.trim() === '') {

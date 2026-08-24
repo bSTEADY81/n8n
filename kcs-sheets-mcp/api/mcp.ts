@@ -2,7 +2,7 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 import { isAuthorised } from '../src/auth.js';
-import { loadEnv } from '../src/config.js';
+import { loadEnv, REQUIRED_ENV } from '../src/config.js';
 import { createServer } from '../src/server.js';
 
 /**
@@ -11,11 +11,12 @@ import { createServer } from '../src/server.js';
  * not guaranteed to see the next request in a session.
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-	let env;
-	try {
-		env = loadEnv();
-	} catch (error) {
-		res.status(500).json({ error: `Server misconfigured: ${(error as Error).message}` });
+	// Auth is checked against MCP_AUTH_TOKEN alone, before the rest of the config
+	// is read. Loading everything up front would report which Google variables are
+	// missing to callers who have not authenticated yet.
+	const expected = process.env.MCP_AUTH_TOKEN;
+	if (expected === undefined || expected.trim() === '') {
+		res.status(500).json({ error: 'Server misconfigured' });
 		return;
 	}
 
@@ -25,7 +26,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 			authorizationHeader: req.headers.authorization,
 			customHeader: req.headers['x-mcp-token'],
 		},
-		env.authToken,
+		expected,
 	);
 
 	if (!authorised) {
@@ -35,8 +36,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 		return;
 	}
 
-	if (req.method === 'GET' && req.query?.health !== undefined) {
-		res.status(200).json({ ok: true, server: 'kcs-sheets' });
+	// Names and presence only, never values. Makes a redeploy onto an existing
+	// project diagnosable in one call when the env var names may not match.
+	if (req.query?.health !== undefined) {
+		res.status(200).json({
+			ok: true,
+			server: 'kcs-sheets',
+			env: Object.fromEntries(
+				REQUIRED_ENV.map((name) => [name, (process.env[name] ?? '').trim() !== '']),
+			),
+		});
+		return;
+	}
+
+	let env;
+	try {
+		env = loadEnv();
+	} catch (error) {
+		res.status(500).json({ error: `Server misconfigured: ${(error as Error).message}` });
 		return;
 	}
 
