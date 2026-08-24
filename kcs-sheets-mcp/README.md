@@ -56,6 +56,11 @@ Enforced in code, not in prose the skill has to remember.
 5. **Append never overwrites.** `values.append` always uses `insertDataOption=INSERT_ROWS`.
 6. **Every write returns its row number**, so the skill can re-read and verify placement — which
    enquiry intake already requires.
+7. **Optimistic concurrency.** `sheets_write_cells` takes an optional `expect` per update, the
+   same shape as `values`, holding what each cell should contain right now. Any mismatch aborts
+   the whole batch before a single cell is written, so a row that shifted between locating it
+   and writing to it cannot be overwritten. This replaces the `expect` guard the desktop-only
+   `kcs-sheets.ps1` provided. Use it on every Ledger write.
 
 Plus sanity ceilings in `LIMITS` (`src/guards.ts`) so a malformed call cannot ask Google for a
 million cells.

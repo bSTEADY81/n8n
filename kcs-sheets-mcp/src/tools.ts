@@ -41,6 +41,16 @@ function isBlank(value: CellValue | undefined): boolean {
 	return value === undefined || value === null || String(value).trim() === '';
 }
 
+/** Blank is blank however it is spelled, and everything else compares trimmed. */
+function sameCell(wanted: CellValue | undefined, actual: CellValue | undefined): boolean {
+	if (isBlank(wanted) && isBlank(actual)) return true;
+	return String(wanted ?? '').trim() === String(actual ?? '').trim();
+}
+
+function describe(value: CellValue | undefined): string {
+	return isBlank(value) ? 'blank' : `"${String(value).trim()}"`;
+}
+
 function ok(payload: unknown) {
 	return { content: [{ type: 'text' as const, text: JSON.stringify(payload, null, 2) }] };
 }
@@ -375,6 +385,15 @@ export function buildTools({ env, client }: ToolDeps) {
 									.array(z.array(cellValue))
 									.min(1)
 									.describe('Rows of cell values, outer array is rows.'),
+								expect: z
+									.array(z.array(cellValue))
+									.optional()
+									.describe(
+										'Optional guard, same shape as values: what each cell should contain ' +
+											'right now. The write is refused if any cell differs, so a row that ' +
+											'has shifted since you located it cannot be overwritten. Use "" for ' +
+											'a cell you expect to be blank. Strongly recommended on the Ledger.',
+									),
 							}),
 						)
 						.min(1)
@@ -391,7 +410,7 @@ export function buildTools({ env, client }: ToolDeps) {
 			handler: guarded(
 				async (args: {
 					spreadsheetId: string;
-					updates: Array<{ range: string; values: CellValue[][] }>;
+					updates: Array<{ range: string; values: CellValue[][]; expect?: CellValue[][] }>;
 					valueInputOption?: ValueInputOption;
 				}) => {
 					const { spreadsheetId: id, updates } = args;
@@ -418,6 +437,33 @@ export function buildTools({ env, client }: ToolDeps) {
 						totalCells += dataRows * dataCols;
 					}
 					assertWithin(totalCells, LIMITS.maxWriteCells, 'cells in one write');
+
+					// Optimistic concurrency: confirm the cells still hold what the caller
+					// last saw before overwriting them. Checked for every update before any
+					// write happens, so a mismatch anywhere aborts the whole batch.
+					const guarded = updates.filter((u) => u.expect !== undefined);
+					if (guarded.length > 0) {
+						const current = await client.batchGet(
+							id,
+							guarded.map((u) => u.range),
+							'FORMATTED_VALUE',
+						);
+						guarded.forEach((update, i) => {
+							const found = current[i]?.values ?? [];
+							(update.expect ?? []).forEach((row, r) => {
+								row.forEach((wanted, c) => {
+									const actual = found[r]?.[c];
+									if (!sameCell(wanted, actual)) {
+										throw new GuardError(
+											`Refusing the write: ${update.range} row ${r + 1} column ${c + 1} ` +
+												`holds ${describe(actual)} but you expected ${describe(wanted)}. ` +
+												'Re-read the row — it has probably shifted.',
+										);
+									}
+								});
+							});
+						});
+					}
 
 					const result = await client.batchUpdate(
 						id,

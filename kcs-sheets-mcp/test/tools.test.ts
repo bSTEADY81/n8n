@@ -427,6 +427,81 @@ describe('sheets_write_cells', () => {
 		).toMatch(/1x3 but the values are 1x4/);
 	});
 
+	describe('the expect guard', () => {
+		it('writes when the cells hold what the caller last saw', async () => {
+			const { json } = harness({ column: [['Smith', 'pending']] });
+			const out = await json('sheets_write_cells', {
+				spreadsheetId: LEDGER,
+				updates: [
+					{ range: 'Quotes!B12:C12', values: [['Smith', 'sent']], expect: [['Smith', 'pending']] },
+				],
+			});
+			expect(out.written[0].row).toBe(12);
+		});
+
+		it('refuses when a cell has changed, naming the cell', async () => {
+			const { calls, error } = harness({ column: [['Jones', 'pending']] });
+			const message = await error('sheets_write_cells', {
+				spreadsheetId: LEDGER,
+				updates: [
+					{ range: 'Quotes!B12:C12', values: [['Smith', 'sent']], expect: [['Smith', 'pending']] },
+				],
+			});
+			expect(message).toMatch(/row 1 column 1/);
+			expect(message).toMatch(/holds "Jones" but you expected "Smith"/);
+			// Nothing may be written once any guard fails.
+			expect(calls.batchUpdate).toHaveLength(0);
+		});
+
+		it('treats blank, empty string and missing as the same thing', async () => {
+			const { json } = harness({ column: [[]] });
+			await expect(
+				json('sheets_write_cells', {
+					spreadsheetId: LEDGER,
+					updates: [{ range: 'Quotes!H1405', values: [['new']], expect: [['']] }],
+				}),
+			).resolves.toBeTruthy();
+		});
+
+		it('refuses to overwrite a filled cell the caller expected to be blank', async () => {
+			const { error } = harness({ column: [['already here']] });
+			expect(
+				await error('sheets_write_cells', {
+					spreadsheetId: LEDGER,
+					updates: [{ range: 'Quotes!H1405', values: [['new']], expect: [['']] }],
+				}),
+			).toMatch(/holds "already here" but you expected blank/);
+		});
+
+		it('ignores surrounding whitespace', async () => {
+			const { json } = harness({ column: [['  Smith  ']] });
+			await expect(
+				json('sheets_write_cells', {
+					spreadsheetId: LEDGER,
+					updates: [{ range: 'Quotes!B12', values: [['x']], expect: [['Smith']] }],
+				}),
+			).resolves.toBeTruthy();
+		});
+
+		it('aborts the batch when a later update fails its guard', async () => {
+			const { calls, error } = harness({ column: [['unexpected']] });
+			await error('sheets_write_cells', {
+				spreadsheetId: LEDGER,
+				updates: [
+					{ range: 'Quotes!B12:L12', values: [Array.from({ length: 11 }, () => 'x')] },
+					{ range: 'Quotes!C13', values: [['y']], expect: [['something else']] },
+				],
+			});
+			expect(calls.batchUpdate).toHaveLength(0);
+		});
+
+		it('skips the read entirely when no update carries an expect', async () => {
+			const { calls, json } = harness({});
+			await json('sheets_write_cells', { spreadsheetId: LEDGER, updates: [good] });
+			expect(calls.batchGet).toHaveLength(0);
+		});
+	});
+
 	it('rejects the whole batch when one range is bad', async () => {
 		const { calls, error } = harness({});
 		await error('sheets_write_cells', {
