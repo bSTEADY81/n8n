@@ -230,6 +230,10 @@ export function buildTools({ env, client }: ToolDeps) {
 							'insensitive: trimmed, case-insensitive equality (default, right for ' +
 								'emails and quote numbers). exact: trimmed, case sensitive. contains: substring.',
 						),
+					matchMode: z
+						.enum(['insensitive', 'exact', 'contains'])
+						.optional()
+						.describe('Alias for match, accepted because existing callers use this name.'),
 					startRow: z.number().int().min(1).default(1).describe('First row to scan.'),
 				},
 				annotations: { readOnlyHint: true },
@@ -242,12 +246,15 @@ export function buildTools({ env, client }: ToolDeps) {
 					value: string;
 					direction?: 'top' | 'bottom';
 					match?: 'insensitive' | 'exact' | 'contains';
+					matchMode?: 'insensitive' | 'exact' | 'contains';
 					startRow?: number;
 				}) => {
 					const { spreadsheetId: id, tab, value } = args;
 					const startRow = args.startRow ?? 1;
 					const col = args.column.toUpperCase();
-					const mode = args.match ?? 'insensitive';
+					// matchMode is what the skills were written against; honour it so a
+					// caller asking for exact matching does not silently get insensitive.
+					const mode = args.matchMode ?? args.match ?? 'insensitive';
 
 					await resolveSheet(id, env, client);
 

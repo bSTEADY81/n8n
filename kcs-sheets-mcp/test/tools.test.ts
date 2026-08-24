@@ -261,6 +261,20 @@ describe('sheets_find_row', () => {
 		expect(out.row).toBe(3);
 	});
 
+	it('honours matchMode as an alias for match', async () => {
+		const { json } = harness({ column });
+		const out = await json('sheets_find_row', {
+			spreadsheetId: LEDGER,
+			tab: 'Quotes',
+			column: 'F',
+			value: 'Kate@Example.com',
+			matchMode: 'exact',
+		});
+		// Silently falling back to insensitive would report two matches, not one.
+		expect(out.matchCount).toBe(1);
+		expect(out.row).toBe(3);
+	});
+
 	it('supports substring matching', async () => {
 		const { json } = harness({ column });
 		const out = await json('sheets_find_row', {
