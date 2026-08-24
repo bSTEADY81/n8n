@@ -7,8 +7,14 @@ import { createServer } from '../src/server.js';
 
 const env: Env = {
 	authToken: 'x',
-	serviceAccount: { client_email: 'sa@example.com', private_key: 'key' },
+	credentials: {
+		kind: 'oauth_user',
+		clientId: 'id',
+		clientSecret: 'secret',
+		refreshToken: 'refresh',
+	},
 	quotesFolderId: 'FOLDER_QUOTES_2026',
+	quotesFolderName: 'Quotes 2026 S&I',
 	extraSheetIds: [],
 };
 

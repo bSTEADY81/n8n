@@ -45,7 +45,7 @@ export class SheetsClient {
 	constructor(private readonly env: Env) {}
 
 	private async request<T>(url: string, init: RequestInit = {}): Promise<T> {
-		const token = await getAccessToken(this.env.serviceAccount);
+		const token = await getAccessToken(this.env.credentials);
 		const response = await fetch(url, {
 			...init,
 			headers: {
@@ -65,6 +65,44 @@ export class SheetsClient {
 		return (await response.json()) as T;
 	}
 
+	/** Resolved once per instance when QUOTES_FOLDER_ID is not configured. */
+	private resolvedFolderId?: string;
+
+	/**
+	 * The quotes folder ID, by configuration if given, otherwise looked up by name.
+	 * The name fallback exists so replacing a server that had no QUOTES_FOLDER_ID
+	 * does not require adding one.
+	 */
+	async quotesFolderId(): Promise<string> {
+		if (this.env.quotesFolderId) return this.env.quotesFolderId;
+		if (this.resolvedFolderId) return this.resolvedFolderId;
+
+		const name = this.env.quotesFolderName.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+		const params = new URLSearchParams({
+			q: `mimeType='application/vnd.google-apps.folder' and name='${name}' and trashed=false`,
+			fields: 'files(id,name)',
+			pageSize: '2',
+			supportsAllDrives: 'true',
+			includeItemsFromAllDrives: 'true',
+		});
+		const json = await this.request<{ files?: Array<{ id?: string }> }>(`${DRIVE_API}?${params}`);
+		const files = json.files ?? [];
+		if (files.length === 0) {
+			throw new GoogleApiError(
+				`No Drive folder named "${this.env.quotesFolderName}". Set QUOTES_FOLDER_ID.`,
+				404,
+			);
+		}
+		if (files.length > 1) {
+			throw new GoogleApiError(
+				`More than one Drive folder named "${this.env.quotesFolderName}". Set QUOTES_FOLDER_ID.`,
+				409,
+			);
+		}
+		this.resolvedFolderId = files[0]?.id ?? '';
+		return this.resolvedFolderId;
+	}
+
 	/** Drive parents, used by the folder-scoped allowlist rule. */
 	async getParents(spreadsheetId: string): Promise<string[]> {
 		const url = `${DRIVE_API}/${encodeURIComponent(spreadsheetId)}?fields=parents&supportsAllDrives=true`;
@@ -78,9 +116,9 @@ export class SheetsClient {
 	 * folder, which is the same boundary resolveSheet enforces on access.
 	 */
 	async findQuoteWorkbooks(
-		folderId: string,
 		nameContains: string,
 	): Promise<Array<{ id: string; name: string; modifiedTime: string }>> {
+		const folderId = await this.quotesFolderId();
 		// Drive query strings are single-quoted, so a quote in the search term
 		// would otherwise terminate the literal early.
 		const safe = nameContains.replace(/\\/g, '\\\\').replace(/'/g, "\\'");

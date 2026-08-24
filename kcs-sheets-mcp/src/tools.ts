@@ -123,7 +123,7 @@ export function buildTools({ env, client }: ToolDeps) {
 				annotations: { readOnlyHint: true },
 			},
 			handler: guarded(async ({ nameContains }: { nameContains: string }) => {
-				const matches = await client.findQuoteWorkbooks(env.quotesFolderId, nameContains);
+				const matches = await client.findQuoteWorkbooks(nameContains);
 				return ok({
 					query: nameContains,
 					matchCount: matches.length,

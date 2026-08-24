@@ -14,7 +14,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 	// Auth is checked against MCP_AUTH_TOKEN alone, before the rest of the config
 	// is read. Loading everything up front would report which Google variables are
 	// missing to callers who have not authenticated yet.
-	const expected = process.env.MCP_AUTH_TOKEN;
+	const expected = process.env.MCP_AUTH_TOKEN ?? process.env.MCP_SHARED_SECRET;
 	if (expected === undefined || expected.trim() === '') {
 		res.status(500).json({ error: 'Server misconfigured' });
 		return;

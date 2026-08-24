@@ -11,8 +11,14 @@ const CLOSER = FIXED_SHEETS.find((s) => s.name === 'The Closer Tracker')!.id;
 
 const env: Env = {
 	authToken: 'x',
-	serviceAccount: { client_email: 'sa@example.com', private_key: 'key' },
+	credentials: {
+		kind: 'oauth_user',
+		clientId: 'id',
+		clientSecret: 'secret',
+		refreshToken: 'refresh',
+	},
 	quotesFolderId: 'FOLDER_QUOTES_2026',
+	quotesFolderName: 'Quotes 2026 S&I',
 	extraSheetIds: [],
 };
 
@@ -32,8 +38,9 @@ function harness(options: {
 }) {
 	const calls: Calls = { batchGet: [], batchUpdate: [], append: [], findWorkbooks: [] };
 	const client = {
+		quotesFolderId: async () => 'FOLDER_QUOTES_2026',
 		getParents: async () => ['SOME_OTHER_FOLDER'],
-		findQuoteWorkbooks: async (_folder: string, nameContains: string) => {
+		findQuoteWorkbooks: async (nameContains: string) => {
 			calls.findWorkbooks.push(nameContains);
 			return options.workbooks ?? [];
 		},

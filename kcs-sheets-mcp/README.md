@@ -90,11 +90,17 @@ million cells.
 
 | Variable | Required | Notes |
 |---|---|---|
-| `MCP_AUTH_TOKEN` | yes | Long random string. `openssl rand -hex 32`. Used as both the path secret and the accepted bearer token. |
-| `GOOGLE_SERVICE_ACCOUNT_JSON` | either | The whole downloaded key file, raw JSON or base64. |
-| `GOOGLE_SERVICE_ACCOUNT_EMAIL` + `GOOGLE_PRIVATE_KEY` | or these | Split form. `GOOGLE_PRIVATE_KEY` may contain literal `\n`. |
-| `QUOTES_FOLDER_ID` | yes | Drive folder ID for Quotes 2026 S&I. |
+| `MCP_AUTH_TOKEN` **or** `MCP_SHARED_SECRET` | yes | Long random string, used as both the path secret and the accepted bearer token. Either name works. |
+| `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` + `GOOGLE_REFRESH_TOKEN` | one of these two sets | **OAuth user credentials.** The server acts as the account that granted them, so it reaches every sheet that account can already see and nothing needs sharing. |
+| `GOOGLE_SERVICE_ACCOUNT_JSON`, or `GOOGLE_SERVICE_ACCOUNT_EMAIL` + `GOOGLE_PRIVATE_KEY` | | **Service account.** Needs every sheet and the quotes folder shared with it explicitly. `GOOGLE_PRIVATE_KEY` may contain literal `\n`. |
+| `QUOTES_FOLDER_ID` | no | Drive folder ID for Quotes 2026 S&I. When unset it is resolved by folder name, so an existing deployment without it keeps working. |
+| `QUOTES_FOLDER_NAME` | no | Defaults to `Quotes 2026 S&I`. Only read when `QUOTES_FOLDER_ID` is unset. |
 | `EXTRA_SHEET_IDS` | no | Comma-separated escape hatch for one-off spreadsheets. Normally empty. |
+
+If both credential sets are present, the OAuth one wins. Section 5 of the spec assumed a
+service account; OAuth user credentials turned out to be what the first deployment used, and
+they are the lower-friction option — nothing to share, and the allowlist in `config.ts` remains
+the actual access boundary either way.
 
 ### 3. Deploy
 

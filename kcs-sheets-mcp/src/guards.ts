@@ -52,7 +52,14 @@ export async function resolveSheet(
 		throw notAllowed(spreadsheetId);
 	}
 
-	const inFolder = parents.includes(env.quotesFolderId);
+	let folderId: string;
+	try {
+		folderId = await client.quotesFolderId();
+	} catch {
+		throw notAllowed(spreadsheetId);
+	}
+
+	const inFolder = parents.includes(folderId);
 	parentCache.set(spreadsheetId, inFolder);
 	if (!inFolder) throw notAllowed(spreadsheetId);
 	return quoteWorkbookRule(spreadsheetId);

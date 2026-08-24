@@ -17,13 +17,20 @@ const SCHEDULE = FIXED_SHEETS.find((s) => s.name === 'Project Schedule')!;
 
 const env: Env = {
 	authToken: 'x',
-	serviceAccount: { client_email: 'sa@example.com', private_key: 'key' },
+	credentials: {
+		kind: 'oauth_user',
+		clientId: 'id',
+		clientSecret: 'secret',
+		refreshToken: 'refresh',
+	},
 	quotesFolderId: 'FOLDER_QUOTES_2026',
+	quotesFolderName: 'Quotes 2026 S&I',
 	extraSheetIds: ['EXTRA_OK'],
 };
 
 function fakeClient(parents: Record<string, string[]>): SheetsClient {
 	return {
+		quotesFolderId: async () => env.quotesFolderId!,
 		getParents: async (id: string) => {
 			if (!(id in parents)) throw new Error('404 not found');
 			return parents[id]!;
@@ -63,6 +70,7 @@ describe('resolveSheet — allowlist', () => {
 
 	it('admits an explicitly allowlisted extra ID without touching Drive', async () => {
 		const client = {
+			quotesFolderId: async () => env.quotesFolderId!,
 			getParents: async () => {
 				throw new Error('should not be called');
 			},
@@ -75,6 +83,7 @@ describe('resolveSheet — allowlist', () => {
 	it('caches parentage so repeat calls do not re-hit Drive', async () => {
 		let calls = 0;
 		const client = {
+			quotesFolderId: async () => env.quotesFolderId!,
 			getParents: async () => {
 				calls += 1;
 				return ['FOLDER_QUOTES_2026'];

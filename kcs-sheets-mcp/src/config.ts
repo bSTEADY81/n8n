@@ -61,16 +61,34 @@ export const FIXED_SHEETS: SheetRule[] = [
 ];
 
 export interface ServiceAccountKey {
-	client_email: string;
-	private_key: string;
+	kind: 'service_account';
+	clientEmail: string;
+	privateKey: string;
 }
+
+/**
+ * OAuth user credentials. The server then acts as the account that granted them,
+ * so it sees every sheet that account can see and nothing needs sharing.
+ */
+export interface OAuthUserKey {
+	kind: 'oauth_user';
+	clientId: string;
+	clientSecret: string;
+	refreshToken: string;
+}
+
+export type GoogleCredentials = ServiceAccountKey | OAuthUserKey;
 
 export interface Env {
 	/** Shared secret, accepted in the URL path or as a bearer token. */
 	authToken: string;
-	serviceAccount: ServiceAccountKey;
-	/** Drive folder ID for "Quotes 2026 S&I". Quote workbooks are admitted by parentage. */
-	quotesFolderId: string;
+	credentials: GoogleCredentials;
+	/**
+	 * Drive folder ID for "Quotes 2026 S&I". Optional: when unset it is resolved by
+	 * folder name at runtime, so no new environment variable is needed.
+	 */
+	quotesFolderId?: string;
+	quotesFolderName: string;
 	/** Extra spreadsheet IDs to admit, comma separated. Escape hatch, normally empty. */
 	extraSheetIds: string[];
 }
@@ -81,10 +99,15 @@ export interface Env {
  */
 export const REQUIRED_ENV = [
 	'MCP_AUTH_TOKEN',
+	'MCP_SHARED_SECRET',
+	'GOOGLE_CLIENT_ID',
+	'GOOGLE_CLIENT_SECRET',
+	'GOOGLE_REFRESH_TOKEN',
 	'GOOGLE_SERVICE_ACCOUNT_JSON',
 	'GOOGLE_SERVICE_ACCOUNT_EMAIL',
 	'GOOGLE_PRIVATE_KEY',
 	'QUOTES_FOLDER_ID',
+	'QUOTES_FOLDER_NAME',
 	'EXTRA_SHEET_IDS',
 ] as const;
 
@@ -96,26 +119,57 @@ function required(name: string): string {
 	return value;
 }
 
+function optional(name: string): string | undefined {
+	const value = process.env[name];
+	return value === undefined || value.trim() === '' ? undefined : value;
+}
+
 /**
- * Accepts the service account either as the whole downloaded JSON blob
- * (GOOGLE_SERVICE_ACCOUNT_JSON, optionally base64) or as the two fields split out.
+ * Two supported credential shapes, checked in the order that costs least to set up.
+ *
+ * OAuth user credentials come first: the server then acts as the account that
+ * granted them and needs nothing shared with it. A service account is the
+ * alternative, and needs each sheet plus the quotes folder shared explicitly.
  */
-function readServiceAccount(): ServiceAccountKey {
-	const blob = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
-	if (blob !== undefined && blob.trim() !== '') {
+function readCredentials(): GoogleCredentials {
+	const refreshToken = optional('GOOGLE_REFRESH_TOKEN');
+	if (refreshToken !== undefined) {
+		return {
+			kind: 'oauth_user',
+			clientId: required('GOOGLE_CLIENT_ID'),
+			clientSecret: required('GOOGLE_CLIENT_SECRET'),
+			refreshToken,
+		};
+	}
+
+	const blob = optional('GOOGLE_SERVICE_ACCOUNT_JSON');
+	if (blob !== undefined) {
 		const text = blob.trim().startsWith('{')
 			? blob
 			: Buffer.from(blob, 'base64').toString('utf8');
-		const parsed = JSON.parse(text) as Partial<ServiceAccountKey>;
+		const parsed = JSON.parse(text) as { client_email?: string; private_key?: string };
 		if (!parsed.client_email || !parsed.private_key) {
 			throw new Error('GOOGLE_SERVICE_ACCOUNT_JSON is missing client_email or private_key');
 		}
-		return { client_email: parsed.client_email, private_key: normaliseKey(parsed.private_key) };
+		return {
+			kind: 'service_account',
+			clientEmail: parsed.client_email,
+			privateKey: normaliseKey(parsed.private_key),
+		};
 	}
-	return {
-		client_email: required('GOOGLE_SERVICE_ACCOUNT_EMAIL'),
-		private_key: normaliseKey(required('GOOGLE_PRIVATE_KEY')),
-	};
+
+	if (optional('GOOGLE_SERVICE_ACCOUNT_EMAIL') !== undefined) {
+		return {
+			kind: 'service_account',
+			clientEmail: required('GOOGLE_SERVICE_ACCOUNT_EMAIL'),
+			privateKey: normaliseKey(required('GOOGLE_PRIVATE_KEY')),
+		};
+	}
+
+	throw new Error(
+		'No Google credentials. Set GOOGLE_REFRESH_TOKEN with GOOGLE_CLIENT_ID and ' +
+			'GOOGLE_CLIENT_SECRET, or GOOGLE_SERVICE_ACCOUNT_JSON.',
+	);
 }
 
 /** Dashboard-pasted keys usually arrive with literal \n rather than real newlines. */
@@ -124,10 +178,18 @@ function normaliseKey(key: string): string {
 }
 
 export function loadEnv(): Env {
+	// MCP_SHARED_SECRET is what the previously deployed server used; accepting both
+	// means this can replace it without re-entering the secret.
+	const authToken = optional('MCP_AUTH_TOKEN') ?? optional('MCP_SHARED_SECRET');
+	if (authToken === undefined) {
+		throw new Error('Missing required environment variable MCP_AUTH_TOKEN or MCP_SHARED_SECRET');
+	}
+
 	return {
-		authToken: required('MCP_AUTH_TOKEN'),
-		serviceAccount: readServiceAccount(),
-		quotesFolderId: required('QUOTES_FOLDER_ID'),
+		authToken,
+		credentials: readCredentials(),
+		quotesFolderId: optional('QUOTES_FOLDER_ID'),
+		quotesFolderName: optional('QUOTES_FOLDER_NAME') ?? 'Quotes 2026 S&I',
 		extraSheetIds: (process.env.EXTRA_SHEET_IDS ?? '')
 			.split(',')
 			.map((s) => s.trim())
