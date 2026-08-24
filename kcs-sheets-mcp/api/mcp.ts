@@ -3,7 +3,38 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 import { isAuthorised } from '../src/auth.js';
 import { loadEnv, REQUIRED_ENV } from '../src/config.js';
+import { getAccessToken } from '../src/googleAuth.js';
 import { createServer } from '../src/server.js';
+
+/**
+ * What Google actually granted, asked of Google rather than assumed. Whether the
+ * credentials carry write scope decides if sheets_write_cells and
+ * sheets_append_row can work at all, and the alternative way to find out is to
+ * attempt a write against a live sheet.
+ */
+async function describeGrant(): Promise<Record<string, unknown>> {
+	try {
+		const env = loadEnv();
+		const token = await getAccessToken(env.credentials);
+		const response = await fetch(
+			`https://oauth2.googleapis.com/tokeninfo?access_token=${encodeURIComponent(token)}`,
+		);
+		if (!response.ok) {
+			return { kind: env.credentials.kind, error: `tokeninfo returned ${response.status}` };
+		}
+		const info = (await response.json()) as { scope?: string; email?: string };
+		const scopes = (info.scope ?? '').split(' ').filter(Boolean);
+		return {
+			kind: env.credentials.kind,
+			account: info.email,
+			scopes,
+			// The read-only scope cannot write, and neither can the absence of both.
+			canWriteSheets: scopes.includes('https://www.googleapis.com/auth/spreadsheets'),
+		};
+	} catch (error) {
+		return { error: (error as Error).message };
+	}
+}
 
 /**
  * Stateless streamable HTTP. Every invocation builds its own server and transport
@@ -46,6 +77,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 			env: Object.fromEntries(
 				REQUIRED_ENV.map((name) => [name, (process.env[name] ?? '').trim() !== '']),
 			),
+			google: await describeGrant(),
 		});
 		return;
 	}
