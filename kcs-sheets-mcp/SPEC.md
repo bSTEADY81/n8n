@@ -39,6 +39,7 @@ native Google Drive connector and does not move.
 | Kevy Training Log | `1O-ZjfNTdIjiWO7CSeaGyCG7rmkN5_oD0WNhDvuRjoh8` | read + write |
 | Past Projects Update (gallery) | `1LpwYBNFViprmanTLfktP6VMykFyu0-0CPqVtW9Sgb60` | read + write |
 | KCs Comms Logbook | `1UJLuQ36erDYFNfo-jSHKV8CxIMCUCjAAnInVxG-VlP8` | read + write |
+| KCRP & KCBP Projects Ledger V2 | `1yYHwVo_WGjO2TjYeYNW6sjVfb2iGIm2gYEeRb5IgUr4` | read + write |
 | Quote workbooks in Quotes 2026 S&I | dynamic, one per job | read + write |
 
 The five fixed sheets can be allowlisted by ID. Quote workbooks cannot, so they need a folder

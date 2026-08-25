@@ -58,6 +58,11 @@ export const FIXED_SHEETS: SheetRule[] = [
 		name: 'KCs Comms Logbook',
 		access: 'readwrite',
 	},
+	{
+		id: '1yYHwVo_WGjO2TjYeYNW6sjVfb2iGIm2gYEeRb5IgUr4',
+		name: 'KCRP & KCBP Projects Ledger V2',
+		access: 'readwrite',
+	},
 ];
 
 export interface ServiceAccountKey {

@@ -108,7 +108,10 @@ describe('sheets_registry', () => {
 		const { json } = harness({});
 		const out = await json('sheets_registry', {});
 		expect(out.sheets.map((s: { name: string }) => s.name)).toContain('KCs Comms Logbook');
-		expect(out.sheets).toHaveLength(6);
+		expect(out.sheets.map((s: { name: string }) => s.name)).toContain(
+			'KCRP & KCBP Projects Ledger V2',
+		);
+		expect(out.sheets).toHaveLength(7);
 	});
 
 	it('marks Project Schedule read only', async () => {
@@ -149,6 +152,40 @@ describe('sheets_find_quote_workbook', () => {
 		const out = await json('sheets_find_quote_workbook', { nameContains: 'Q9999' });
 		expect(out.matchCount).toBe(0);
 		expect(out.note).toMatch(/No workbook/);
+	});
+});
+
+describe('the Projects Ledger V2', () => {
+	const PROJECTS = '1yYHwVo_WGjO2TjYeYNW6sjVfb2iGIm2gYEeRb5IgUr4';
+
+	it('is writable in place', async () => {
+		const { json } = harness({ updatedRanges: ['Sheet1!B4:C4'] });
+		const out = await json('sheets_write_cells', {
+			spreadsheetId: PROJECTS,
+			updates: [{ range: 'Sheet1!B4:C4', values: [['a', 'b']] }],
+		});
+		expect(out.spreadsheetName).toBe('KCRP & KCBP Projects Ledger V2');
+		expect(out.written[0].row).toBe(4);
+	});
+
+	it('accepts appends', async () => {
+		const { json } = harness({ appendRange: 'Sheet1!A9:D9' });
+		const out = await json('sheets_append_row', {
+			spreadsheetId: PROJECTS,
+			tab: 'Sheet1',
+			values: ['x'],
+		});
+		expect(out.row).toBe(9);
+	});
+
+	it('has no protected columns, so column A is writable', async () => {
+		const { json } = harness({ updatedRanges: ['Sheet1!A4'] });
+		await expect(
+			json('sheets_write_cells', {
+				spreadsheetId: PROJECTS,
+				updates: [{ range: 'Sheet1!A4', values: [['x']] }],
+			}),
+		).resolves.toBeTruthy();
 	});
 });
 
