@@ -24,12 +24,32 @@ async function describeGrant(): Promise<Record<string, unknown>> {
 		}
 		const info = (await response.json()) as { scope?: string; email?: string };
 		const scopes = (info.scope ?? '').split(' ').filter(Boolean);
+
+		// tokeninfo only returns an email when the userinfo scopes were consented,
+		// which they were not. Drive's about endpoint names the account under the
+		// drive scope we do have, and which account this is decides which Drive
+		// "every spreadsheet" actually means.
+		let account = info.email;
+		if (account === undefined) {
+			const about = await fetch(
+				'https://www.googleapis.com/drive/v3/about?fields=user(emailAddress)',
+				{ headers: { authorization: `Bearer ${token}` } },
+			);
+			if (about.ok) {
+				const json = (await about.json()) as { user?: { emailAddress?: string } };
+				account = json.user?.emailAddress;
+			}
+		}
+
 		return {
 			kind: env.credentials.kind,
-			account: info.email,
+			account,
 			scopes,
 			// The read-only scope cannot write, and neither can the absence of both.
 			canWriteSheets: scopes.includes('https://www.googleapis.com/auth/spreadsheets'),
+			// drive.readonly cannot create files, so there is no way to make a new
+			// spreadsheet — only to write into ones that already exist.
+			canCreateSpreadsheets: false,
 		};
 	} catch (error) {
 		return { error: (error as Error).message };
