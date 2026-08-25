@@ -86,10 +86,11 @@ export function buildTools({ env, client }: ToolDeps) {
 			config: {
 				title: 'List reachable spreadsheets',
 				description:
-					"List the KC's spreadsheets this server can reach, with their IDs and whether " +
-					'they are read only. Call this first if you do not already know the sheet ID. ' +
-					'Per-job quote workbooks are not listed here — resolve those with ' +
-					'sheets_find_quote_workbook.',
+					"List the KC's spreadsheets this server has rules for, with their IDs, whether " +
+					'they are read only, and which columns are write protected. Call this first if ' +
+					'you do not already know the sheet ID. This list is not a limit: any spreadsheet ' +
+					'the credentials can reach is usable by ID. Per-job quote workbooks are not ' +
+					'listed — resolve those with sheets_find_quote_workbook.',
 				inputSchema: {},
 				annotations: { readOnlyHint: true },
 			},
@@ -109,8 +110,13 @@ export function buildTools({ env, client }: ToolDeps) {
 							: {}),
 					})),
 					quoteWorkbooks:
-						'Not allowlisted individually. Use sheets_find_quote_workbook with a quote ' +
+						'Not listed individually. Use sheets_find_quote_workbook with a quote ' +
 						'number or client surname to resolve one in Quotes 2026 S&I.',
+					otherSpreadsheets: env.restrictToAllowlist
+						? 'Refused. Only the sheets above, EXTRA_SHEET_IDS, and the Quotes 2026 S&I ' +
+							'folder are reachable.'
+						: 'Reachable by ID, read and write. The sheets above are the ones with extra ' +
+							'rules; everything else has none, so check the ID before writing.',
 					writeTools: ['sheets_write_cells', 'sheets_append_row'],
 				}),
 			),

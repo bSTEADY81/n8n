@@ -25,6 +25,8 @@ const env: Env = {
 	},
 	quotesFolderId: 'FOLDER_QUOTES_2026',
 	quotesFolderName: 'Quotes 2026 S&I',
+	// These suites assert the allowlist behaviour, so they opt into it.
+	restrictToAllowlist: true,
 	extraSheetIds: ['EXTRA_OK'],
 };
 
@@ -92,6 +94,38 @@ describe('resolveSheet — allowlist', () => {
 		await resolveSheet('WB', env, client);
 		await resolveSheet('WB', env, client);
 		expect(calls).toBe(1);
+	});
+});
+
+describe('resolveSheet — with the allowlist off (the deployed default)', () => {
+	const open: Env = { ...env, restrictToAllowlist: false };
+
+	it('admits any spreadsheet, without asking Drive', async () => {
+		const client = {
+			quotesFolderId: async () => {
+				throw new Error('should not be called');
+			},
+			getParents: async () => {
+				throw new Error('should not be called');
+			},
+		} as unknown as SheetsClient;
+		await expect(resolveSheet('ANY_SHEET_AT_ALL', open, client)).resolves.toMatchObject({
+			name: 'Unlisted spreadsheet',
+			access: 'readwrite',
+		});
+	});
+
+	it('still applies the configured rules to sheets that have them', async () => {
+		const client = fakeClient({});
+		// Read-only and protected columns are separate guard rails; turning the
+		// allowlist off must not quietly turn those off too.
+		await expect(resolveSheet(SCHEDULE.id, open, client)).resolves.toMatchObject({
+			name: 'Project Schedule',
+			access: 'read',
+		});
+		await expect(resolveSheet(LEDGER.id, open, client)).resolves.toMatchObject({
+			protectedColumns: ['A', 'AE'],
+		});
 	});
 });
 

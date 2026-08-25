@@ -15,6 +15,8 @@ const env: Env = {
 	},
 	quotesFolderId: 'FOLDER_QUOTES_2026',
 	quotesFolderName: 'Quotes 2026 S&I',
+	// These suites assert the allowlist behaviour, so they opt into it.
+	restrictToAllowlist: true,
 	extraSheetIds: [],
 };
 

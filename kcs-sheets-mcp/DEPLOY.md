@@ -74,12 +74,15 @@ recovery path if it is ever lost.
 |---|---|
 | Client reports "token expired" / asks to re-authorize | A 401. There is no OAuth flow here — the secret is wrong or being sent in a form the server does not read. Check the connector URL against the auth section above. |
 | `Server misconfigured: Missing required environment variable` | Run the health check; it names which one. |
-| `REFUSED: ... not in the allowlist` | Working as intended. Add the sheet to `FIXED_SHEETS` in `src/config.ts` and push. |
+| `REFUSED: ... not in the allowlist` | Only possible with `RESTRICT_TO_ALLOWLIST=true`. Add the sheet to `FIXED_SHEETS`, or to `EXTRA_SHEET_IDS`, or unset the variable. |
 | Google 403 on a write | Scope. Check `canWriteSheets` in the health output. |
 | Build fails with "root directory does not exist" | Production Branch is pointing somewhere without `kcs-sheets-mcp`. |
 
 ## Adding a spreadsheet
 
-Edit `FIXED_SHEETS` in `src/config.ts`, push. There is no environment variable for this and no
-runtime configuration — the allowlist is compiled in deliberately, so every change to what the
-server can reach is a reviewable commit.
+Nothing to do. Any spreadsheet the credentials can reach is readable and writable by ID.
+
+Add an entry to `FIXED_SHEETS` in `src/config.ts` only when a sheet needs *extra* rules — a
+read-only marking, or write-protected columns. Those are the exception, not the admission ticket.
+
+Set `RESTRICT_TO_ALLOWLIST=true` to go back to refusing anything not configured.

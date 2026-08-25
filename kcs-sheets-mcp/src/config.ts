@@ -96,6 +96,13 @@ export interface Env {
 	quotesFolderName: string;
 	/** Extra spreadsheet IDs to admit, comma separated. Escape hatch, normally empty. */
 	extraSheetIds: string[];
+	/**
+	 * When true, only the sheets in FIXED_SHEETS, EXTRA_SHEET_IDS, or the quotes
+	 * folder are reachable. Off by default: Brad chose an open server after being
+	 * shown the tradeoff, having hit the friction of a code change and a deploy per
+	 * sheet. The per-sheet rules below still apply to the sheets they name.
+	 */
+	restrictToAllowlist: boolean;
 }
 
 /**
@@ -114,6 +121,7 @@ export const REQUIRED_ENV = [
 	'QUOTES_FOLDER_ID',
 	'QUOTES_FOLDER_NAME',
 	'EXTRA_SHEET_IDS',
+	'RESTRICT_TO_ALLOWLIST',
 ] as const;
 
 function required(name: string): string {
@@ -199,5 +207,6 @@ export function loadEnv(): Env {
 			.split(',')
 			.map((s) => s.trim())
 			.filter((s) => s !== ''),
+		restrictToAllowlist: (optional('RESTRICT_TO_ALLOWLIST') ?? '').toLowerCase() === 'true',
 	};
 }

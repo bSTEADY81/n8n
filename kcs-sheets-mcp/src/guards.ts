@@ -24,9 +24,16 @@ export function resetParentCache(): void {
 }
 
 /**
- * Guard rail 1: spreadsheet allowlist. A spreadsheet is admitted if it is one of
- * the five fixed sheets, is listed in EXTRA_SHEET_IDS, or is a quote workbook
- * living in the Quotes 2026 S&I folder.
+ * Resolves the rules that apply to a spreadsheet.
+ *
+ * A sheet named in FIXED_SHEETS always gets its configured rules — Project
+ * Schedule stays read-only, the Ledger keeps its protected columns — whatever
+ * the allowlist setting is.
+ *
+ * Anything else depends on RESTRICT_TO_ALLOWLIST. Off (the default), any
+ * spreadsheet the credentials can reach is readable and writable. On, an
+ * unknown sheet is admitted only by EXTRA_SHEET_IDS or by living in the quotes
+ * folder, and is otherwise refused.
  */
 export async function resolveSheet(
 	spreadsheetId: string,
@@ -38,6 +45,14 @@ export async function resolveSheet(
 
 	if (env.extraSheetIds.includes(spreadsheetId)) {
 		return { id: spreadsheetId, name: 'Allowlisted spreadsheet', access: 'readwrite' };
+	}
+
+	if (!env.restrictToAllowlist) {
+		return {
+			id: spreadsheetId,
+			name: 'Unlisted spreadsheet',
+			access: 'readwrite',
+		};
 	}
 
 	const cached = parentCache.get(spreadsheetId);
@@ -72,7 +87,8 @@ function quoteWorkbookRule(spreadsheetId: string): SheetRule {
 function notAllowed(spreadsheetId: string): GuardError {
 	return new GuardError(
 		`Spreadsheet ${spreadsheetId} is not on the allowlist. Allowed: ` +
-			`${FIXED_SHEETS.map((s) => s.name).join(', ')}, or any workbook in Quotes 2026 S&I.`,
+			`${FIXED_SHEETS.map((s) => s.name).join(', ')}, any workbook in Quotes 2026 S&I, ` +
+			'or anything in EXTRA_SHEET_IDS. Unset RESTRICT_TO_ALLOWLIST to reach any spreadsheet.',
 	);
 }
 

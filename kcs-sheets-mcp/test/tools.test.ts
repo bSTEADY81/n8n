@@ -19,6 +19,8 @@ const env: Env = {
 	},
 	quotesFolderId: 'FOLDER_QUOTES_2026',
 	quotesFolderName: 'Quotes 2026 S&I',
+	// These suites assert the allowlist behaviour, so they opt into it.
+	restrictToAllowlist: true,
 	extraSheetIds: [],
 };
 
@@ -35,6 +37,7 @@ function harness(options: {
 	appendRange?: string;
 	updatedRanges?: string[];
 	workbooks?: Array<{ id: string; name: string; modifiedTime: string }>;
+	env?: Partial<Env>;
 }) {
 	const calls: Calls = { batchGet: [], batchUpdate: [], append: [], findWorkbooks: [] };
 	const client = {
@@ -62,7 +65,7 @@ function harness(options: {
 		},
 	} as unknown as SheetsClient;
 
-	const tools = buildTools({ env, client });
+	const tools = buildTools({ env: { ...env, ...(options.env ?? {}) }, client });
 	const byName = new Map(tools.map((t) => [t.name, t]));
 	const call = async (name: string, args: unknown) => {
 		const tool = byName.get(name);
@@ -222,6 +225,50 @@ describe('sheets_list_tabs', () => {
 		const { json } = harness({ tabs: [{ title: 'PO 1' }, { title: 'TAKE OFF' }] });
 		const out = await json('sheets_list_tabs', { spreadsheetId: LEDGER });
 		expect(out.tabs.map((t: { title: string }) => t.title)).toEqual(['PO 1', 'TAKE OFF']);
+	});
+});
+
+describe('with the allowlist off (the deployed default)', () => {
+	const open = { env: { restrictToAllowlist: false } };
+
+	it('writes to a spreadsheet that was never configured', async () => {
+		const { json } = harness({ ...open, updatedRanges: ['Sheet1!B2:C2'] });
+		const out = await json('sheets_write_cells', {
+			spreadsheetId: 'SOME_UNCONFIGURED_SHEET',
+			updates: [{ range: 'Sheet1!B2:C2', values: [['a', 'b']] }],
+		});
+		expect(out.spreadsheetName).toBe('Unlisted spreadsheet');
+		expect(out.written[0].row).toBe(2);
+	});
+
+	it('still refuses to write to Project Schedule', async () => {
+		const { error } = harness(open);
+		expect(
+			await error('sheets_write_cells', {
+				spreadsheetId: SCHEDULE,
+				updates: [{ range: "'Job Schedule'!B2", values: [['x']] }],
+			}),
+		).toMatch(/read-only/);
+	});
+
+	it('still refuses to write Ledger column AE', async () => {
+		const { error } = harness(open);
+		expect(
+			await error('sheets_write_cells', {
+				spreadsheetId: LEDGER,
+				updates: [{ range: 'Quotes!AE12', values: [['x']] }],
+			}),
+		).toMatch(/AE/);
+	});
+
+	it('still refuses an open-ended range', async () => {
+		const { error } = harness(open);
+		expect(
+			await error('sheets_write_cells', {
+				spreadsheetId: 'ANYTHING',
+				updates: [{ range: 'Sheet1', values: [['x']] }],
+			}),
+		).toMatch(/open ended/);
 	});
 });
 

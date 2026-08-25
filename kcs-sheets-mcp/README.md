@@ -42,9 +42,18 @@ return a row number, which matters most on the Ledger now it runs past 1,700 row
 
 Enforced in code, not in prose the skill has to remember.
 
-1. **Spreadsheet allowlist.** The five fixed sheets are pinned by ID in `src/config.ts`. Quote
-   workbooks cannot be, so they are admitted by Drive parentage: any spreadsheet whose parent is
-   the Quotes 2026 S&I folder. A Drive lookup failure rejects rather than admits.
+1. **Spreadsheet rules, not an allowlist (by default).** Any spreadsheet the credentials can
+   reach is readable and writable. The sheets in `src/config.ts` are the ones carrying *extra*
+   rules — read-only, protected columns — and those rules always apply.
+
+   This started as a hard allowlist, per section 4 of the spec. It was opened up deliberately
+   after the friction proved worse than the risk: every new sheet meant a code change and a
+   deploy. Set `RESTRICT_TO_ALLOWLIST=true` to put it back, and then only the configured sheets,
+   `EXTRA_SHEET_IDS`, and workbooks parented to the Quotes 2026 S&I folder are reachable.
+
+   Worth being clear about what this costs: the credentials are a user account, so an incorrect
+   spreadsheet ID now lands somewhere real rather than being refused. The remaining guards are
+   about *where in a sheet* a write goes, not *which* sheet — so check the ID.
 2. **Protected columns.** Ledger column `AE` (sheet-generated colour form link) and column `A`
    (pre-filled quote numbers) reject in-place writes, scoped to the `Quotes` tab. Appends are
    exempt — a new row cannot clobber a pre-filled value.
@@ -100,7 +109,8 @@ million cells.
 | `GOOGLE_SERVICE_ACCOUNT_JSON`, or `GOOGLE_SERVICE_ACCOUNT_EMAIL` + `GOOGLE_PRIVATE_KEY` | | **Service account.** Needs every sheet and the quotes folder shared with it explicitly. `GOOGLE_PRIVATE_KEY` may contain literal `\n`. |
 | `QUOTES_FOLDER_ID` | no | Drive folder ID for Quotes 2026 S&I. When unset it is resolved by folder name, so an existing deployment without it keeps working. |
 | `QUOTES_FOLDER_NAME` | no | Defaults to `Quotes 2026 S&I`. Only read when `QUOTES_FOLDER_ID` is unset. |
-| `EXTRA_SHEET_IDS` | no | Comma-separated escape hatch for one-off spreadsheets. Normally empty. |
+| `EXTRA_SHEET_IDS` | no | Comma-separated extra IDs. Only consulted when `RESTRICT_TO_ALLOWLIST` is on. |
+| `RESTRICT_TO_ALLOWLIST` | no | `true` restores the hard allowlist. Unset (the default) means any reachable spreadsheet is usable. |
 
 If both credential sets are present, the OAuth one wins. Section 5 of the spec assumed a
 service account; OAuth user credentials turned out to be what the first deployment used, and
